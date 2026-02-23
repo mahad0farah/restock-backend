@@ -39,118 +39,58 @@ export class StockChecker {
   private parseStockStatus(html: string): StockStatus {
     const lowerHtml = html.toLowerCase();
 
-    // Amazon-specific: If "See All Buying Options" exists, product IS available
-    if (lowerHtml.includes('see all buying options') || lowerHtml.includes('other sellers on amazon')) {
-      console.log('[Backend Parser] Found Amazon buying options - AVAILABLE');
-      return 'in_stock';
+    // Check structured data first (most reliable)
+    const structuredAvailability = this.checkStructuredData(html);
+    if (structuredAvailability) {
+      console.log('[Backend Parser] Using structured data:', structuredAvailability);
+      return structuredAvailability;
     }
 
-    // Check for add to cart button patterns first (most reliable)
+    // Check for add to cart button
     const hasAddToCart = lowerHtml.includes('add to cart') ||
                         lowerHtml.includes('add to bag') ||
                         lowerHtml.includes('add to basket') ||
                         lowerHtml.includes('buy now') ||
-                        lowerHtml.includes('purchase') ||
-                        lowerHtml.includes('pre-order');
+                        lowerHtml.includes('purchase');
 
     console.log(`[Backend Parser] Has add to cart: ${hasAddToCart}`);
 
-    // More specific check: look for disabled attribute near add to cart
+    // Check for disabled button near "add to cart"
     let hasDisabledButton = false;
-    const addToCartIndex = lowerHtml.indexOf('add to cart');
-    if (addToCartIndex !== -1) {
-      // Check 1500 chars before and after the "add to cart" text
+    if (hasAddToCart) {
+      const addToCartIndex = lowerHtml.indexOf('add to cart');
       const start = Math.max(0, addToCartIndex - 1500);
       const end = Math.min(lowerHtml.length, addToCartIndex + 1500);
       const buttonSection = lowerHtml.substring(start, end);
 
-      // Check for disabled in multiple ways
-      const hasDisabledAttr = /disabled="true"|disabled>|disabled\s|disabled=""|disabled$/m.test(buttonSection);
-      const ariaDisabled = /aria-disabled="true"/.test(buttonSection);
-      const hasDisabledClass = /class="[^"]*disabled[^"]*"|class='[^']*disabled[^']*'/i.test(buttonSection);
-      const hasInactiveClass = /class="[^"]*inactive[^"]*"|class='[^']*inactive[^']*'/i.test(buttonSection);
-      const hasZalandoDisabled = /button--disabled|z-button--disabled|is-disabled/.test(buttonSection);
-
-      hasDisabledButton = hasDisabledAttr || ariaDisabled || hasDisabledClass || hasInactiveClass || hasZalandoDisabled;
-
-      console.log(`[Backend Parser] Button section check:`, {
-        hasDisabledAttr,
-        ariaDisabled,
-        hasDisabledClass,
-        hasInactiveClass,
-        hasZalandoDisabled
-      });
+      hasDisabledButton = /disabled|aria-disabled="true"|class="[^"]*disabled[^"]*"/i.test(buttonSection);
+      console.log(`[Backend Parser] Has disabled button: ${hasDisabledButton}`);
     }
 
-    console.log(`[Backend Parser] Has disabled button: ${hasDisabledButton}`);
-
-    // Very specific out of stock patterns with word boundaries
-    const outOfStockPatterns = [
-      /\bout of stock\b/i,
-      /\bsold out\b/i,
-      /\bcurrently unavailable\b/i,
-      /\bno longer available\b/i,
-      /\btemporarily out of stock\b/i,
-      /\bnot available\b/i,
-      /\bitem is no longer available\b/i,
-      /\bthis item is unavailable\b/i
-    ];
-
-    // Check near the add to cart area specifically
-    if (hasAddToCart) {
-      const addToCartIndex = lowerHtml.indexOf('add to cart');
-      const start = Math.max(0, addToCartIndex - 2000);
-      const end = Math.min(lowerHtml.length, addToCartIndex + 2000);
-      const productArea = html.substring(start, end);
-
-      for (const pattern of outOfStockPatterns) {
-        if (pattern.test(productArea)) {
-          console.log(`[Backend Parser] Found out of stock pattern in product area:`, pattern);
-          return 'unavailable';
-        }
-      }
-    } else {
-      // If no add to cart button, check whole page
-      for (const pattern of outOfStockPatterns) {
-        if (pattern.test(html)) {
-          console.log(`[Backend Parser] Found out of stock pattern:`, pattern);
-          return 'unavailable';
-        }
-      }
+    // Check for out of stock patterns
+    const outOfStockPattern = /\b(out of stock|sold out|currently unavailable|not available|unavailable)\b/i;
+    if (outOfStockPattern.test(html)) {
+      console.log('[Backend Parser] Found out of stock pattern');
+      return 'unavailable';
     }
 
-    // Check for low stock indicators
-    const lowStockPatterns = [
-      /only \d+ left/i,
-      /\blow stock\b/i,
-      /\bfew left\b/i,
-      /\blimited stock\b/i,
-      /\balmost gone\b/i
-    ];
-
-    for (const pattern of lowStockPatterns) {
-      if (pattern.test(html)) {
-        return 'few_left';
-      }
+    // Check for low stock patterns
+    const lowStockPattern = /\b(low stock|few left|limited stock|only \d+ left)\b/i;
+    if (lowStockPattern.test(html)) {
+      console.log('[Backend Parser] Found low stock pattern');
+      return 'few_left';
     }
 
-    // Check structured data availability
-    const structuredAvailability = this.checkStructuredData(html);
-    if (structuredAvailability) {
-      return structuredAvailability;
-    }
-
-    // If we have an add to cart button and it's not disabled, it's in stock
+    // Determine status based on button state
     if (hasAddToCart && !hasDisabledButton) {
       return 'in_stock';
     }
 
-    // If button exists but is disabled with no clear out of stock message
     if (hasAddToCart && hasDisabledButton) {
       return 'unavailable';
     }
 
-    // Default to in stock if we can't determine
+    // Default to in stock
     return 'in_stock';
   }
 
