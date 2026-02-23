@@ -25,7 +25,7 @@ app.get('/health', (req: Request, res: Response) => {
 // Stock check endpoint
 app.post('/api/check-stock', async (req: Request, res: Response) => {
   try {
-    const { url, currentStatus }: StockCheckRequest = req.body;
+    const { url, currentStatus, variant }: StockCheckRequest = req.body;
 
     if (!url) {
       return res.status(400).json({
@@ -36,8 +36,9 @@ app.post('/api/check-stock', async (req: Request, res: Response) => {
     }
 
     console.log(`[API] Checking stock for: ${url}`);
+    if (variant) console.log(`[API] Variant: ${variant}`);
 
-    const status = await checker.checkStock(url);
+    const status = await checker.checkStock(url, variant);
 
     const response: StockCheckResponse = {
       success: true,

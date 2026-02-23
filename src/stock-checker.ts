@@ -2,9 +2,10 @@ import fetch from 'node-fetch';
 import { StockStatus } from './types';
 
 export class StockChecker {
-  async checkStock(url: string): Promise<StockStatus> {
+  async checkStock(url: string, variant?: string): Promise<StockStatus> {
     try {
       console.log(`[Backend] Fetching: ${url}`);
+      if (variant) console.log(`[Backend] Checking variant: ${variant}`);
 
       const response = await fetch(url, {
         method: 'GET',
@@ -26,7 +27,9 @@ export class StockChecker {
       const html = await response.text();
       console.log(`[Backend] HTML length: ${html.length} characters`);
 
-      const status = this.parseStockStatus(html);
+      const status = variant
+        ? this.parseVariantStock(html, variant)
+        : this.parseStockStatus(html);
       console.log(`[Backend] Detected status: ${status}`);
 
       return status;
@@ -34,6 +37,36 @@ export class StockChecker {
       console.error(`[Backend] Error checking stock for ${url}:`, error);
       throw error;
     }
+  }
+
+  private parseVariantStock(html: string, variantString: string): StockStatus {
+    console.log(`[Backend] Checking variant-specific stock: ${variantString}`);
+
+    // Extract size/color from variant string
+    const sizeMatch = variantString.match(/Size:\s*([^,]+)/i);
+    const colorMatch = variantString.match(/Color:\s*([^,]+)/i);
+
+    const size = sizeMatch?.[1].trim();
+    const color = colorMatch?.[1].trim();
+
+    if (size) {
+      // Check if this specific size is mentioned as unavailable
+      const sizeUnavailablePattern = new RegExp(`${size}[^<]*?(out of stock|sold out|unavailable|disabled)`, 'i');
+      if (sizeUnavailablePattern.test(html)) {
+        console.log(`[Backend] Size ${size} is unavailable`);
+        return 'unavailable';
+      }
+
+      // Check if size button is disabled in HTML
+      const sizeButtonPattern = new RegExp(`data-size=["']${size}["'][^>]*(disabled|class="[^"]*disabled[^"]*")`, 'i');
+      if (sizeButtonPattern.test(html)) {
+        console.log(`[Backend] Size ${size} button is disabled`);
+        return 'unavailable';
+      }
+    }
+
+    // Fall back to general stock checking
+    return this.parseStockStatus(html);
   }
 
   private parseStockStatus(html: string): StockStatus {
