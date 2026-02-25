@@ -34,6 +34,21 @@ export class AIVisionService {
   }
 
   /**
+   * Detect image format from base64 data
+   */
+  private detectImageFormat(base64: string): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' {
+    // Check magic bytes at start of base64
+    if (base64.startsWith('/9j/')) return 'image/jpeg';
+    if (base64.startsWith('iVBORw0KGgo')) return 'image/png';
+    if (base64.startsWith('R0lGODlh')) return 'image/gif';
+    if (base64.startsWith('UklGR')) return 'image/webp';
+
+    // Default to JPEG if unknown
+    console.warn('[AI Vision] Unknown image format, defaulting to JPEG');
+    return 'image/jpeg';
+  }
+
+  /**
    * Detect all variants (sizes, colors, styles) from a product screenshot
    */
   async detectVariants(screenshot: string, url: string): Promise<VariantDetectionResult> {
@@ -79,6 +94,10 @@ Confidence levels:
 If no variants are found, return empty array with appropriate confidence and reasoning.`;
 
     try {
+      // Auto-detect image format
+      const mediaType = this.detectImageFormat(screenshot);
+      console.log(`[AI Vision] Detected image format: ${mediaType}`);
+
       const response = await this.client.messages.create({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 1024,
@@ -90,7 +109,7 @@ If no variants are found, return empty array with appropriate confidence and rea
                 type: 'image',
                 source: {
                   type: 'base64',
-                  media_type: 'image/jpeg',
+                  media_type: mediaType,
                   data: screenshot,
                 },
               },
@@ -157,6 +176,10 @@ Confidence levels:
 Be conservative: if unsure between in_stock and unavailable, choose unavailable to avoid false positives.`;
 
     try {
+      // Auto-detect image format
+      const mediaType = this.detectImageFormat(screenshot);
+      console.log(`[AI Vision] Detected image format: ${mediaType}`);
+
       const response = await this.client.messages.create({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 512,
@@ -168,7 +191,7 @@ Be conservative: if unsure between in_stock and unavailable, choose unavailable 
                 type: 'image',
                 source: {
                   type: 'base64',
-                  media_type: 'image/jpeg',
+                  media_type: mediaType,
                   data: screenshot,
                 },
               },
