@@ -99,7 +99,7 @@ If no variants are found, return empty array with appropriate confidence and rea
       console.log(`[AI Vision] Detected image format: ${mediaType}`);
 
       const response = await this.client.messages.create({
-        model: 'claude-3-opus-20240229',
+        model: 'claude-opus-4-6',
         max_tokens: 1024,
         messages: [
           {
@@ -181,7 +181,7 @@ Be conservative: if unsure between in_stock and unavailable, choose unavailable 
       console.log(`[AI Vision] Detected image format: ${mediaType}`);
 
       const response = await this.client.messages.create({
-        model: 'claude-3-opus-20240229',
+        model: 'claude-opus-4-6',
         max_tokens: 512,
         messages: [
           {
