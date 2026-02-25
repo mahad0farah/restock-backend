@@ -52,11 +52,11 @@ export class AIVisionService {
    * Detect all variants (sizes, colors, styles) from a product screenshot
    */
   async detectVariants(screenshot: string, url: string): Promise<VariantDetectionResult> {
-    // Check cache first
-    const cacheKey = this.getCacheKey('variants', screenshot);
+    // Check cache first (include URL to prevent collisions)
+    const cacheKey = this.getCacheKey(`variants-${url}`, screenshot);
     const cached = this.getFromCache(cacheKey);
     if (cached) {
-      console.log('[AI Vision] Using cached variant detection result');
+      console.log('[AI Vision] Using cached variant detection result for:', url);
       return cached;
     }
 
@@ -137,11 +137,11 @@ If no variants are found, return empty array with appropriate confidence and rea
    * Check if a specific variant is in stock from a screenshot
    */
   async checkVariantStock(screenshot: string, variant: string, url: string): Promise<StockCheckResult> {
-    // Check cache first
-    const cacheKey = this.getCacheKey(`stock-${variant}`, screenshot);
+    // Check cache first (include URL to prevent collisions)
+    const cacheKey = this.getCacheKey(`stock-${url}-${variant}`, screenshot);
     const cached = this.getFromCache(cacheKey);
     if (cached) {
-      console.log('[AI Vision] Using cached stock check result for:', variant);
+      console.log('[AI Vision] Using cached stock check result for:', variant, 'at', url);
       return cached;
     }
 
